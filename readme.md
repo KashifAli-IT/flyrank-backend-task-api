@@ -230,6 +230,15 @@ W2A1CRUD/
 
 The `tasks.db` file is generated automatically at runtime and is intentionally excluded from Git.
 
+## A3 Stage 0: PostgreSQL in Docker
+
+PostgreSQL runs in Docker using the `postgres:17` image.
+
+### Start PostgreSQL
+
+```powershell
+docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:17
+
 ## Author
 
 **Kashif Ali**
