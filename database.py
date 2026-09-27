@@ -1,37 +1,42 @@
-import sqlite3
+import os
 
-DATABASE = "tasks.db"
+import psycopg
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
 
 def get_connection():
-    connection = sqlite3.connect(DATABASE)
-    connection.row_factory = sqlite3.Row
-    return connection
+    return psycopg.connect(DATABASE_URL)
 
 
 def init_db():
-    connection = get_connection()
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS tasks (
+                    id SERIAL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    done BOOLEAN NOT NULL DEFAULT FALSE
+                )
+            """)
 
-    connection.execute("""
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            done INTEGER NOT NULL DEFAULT 0
-        )
-    """)
+            cursor.execute("SELECT COUNT(*) FROM tasks")
+            task_count = cursor.fetchone()[0]
 
-    cursor = connection.execute("SELECT COUNT(*) FROM tasks")
-    task_count = cursor.fetchone()[0]
+            if task_count == 0:
+                cursor.executemany(
+                    "INSERT INTO tasks (title, done) VALUES (%s, %s)",
+                    [
+                        ("Learn FastAPI", False),
+                        ("Build CRUD API", False),
+                        ("Push Project to GitHub", False)
+                    ]
+                )
 
-    if task_count == 0:
-        connection.executemany(
-            "INSERT INTO tasks (title, done) VALUES (?, ?)",
-            [
-                ("Learn FastAPI", 0),
-                ("Build CRUD API", 0),
-                ("Push Project to GitHub", 0)
-            ]
-        )
-
-    connection.commit()
-    connection.close()
+        connection.commit()
