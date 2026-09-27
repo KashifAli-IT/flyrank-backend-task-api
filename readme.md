@@ -1,14 +1,8 @@
 # Task API
 
-A simple RESTful CRUD API built with **FastAPI** and **SQLite** as part of the FlyRank AI Backend Engineer internship task.
+A containerized RESTful CRUD API built with **FastAPI** and **PostgreSQL** as part of the FlyRank AI Backend Engineer internship task.
 
-The API manages tasks with three fields:
-
-* `id` — unique task ID
-* `title` — task title
-* `done` — completion status
-
-SQLite is used as the persistent data store, so tasks survive API restarts.
+The application provides CRUD operations for tasks and runs the API and PostgreSQL database together with Docker Compose.
 
 ## Features
 
@@ -19,149 +13,122 @@ SQLite is used as the persistent data store, so tasks survive API restarts.
 * Delete a task
 * Input validation
 * Proper HTTP status codes
-* SQLite persistence
+* PostgreSQL persistence
 * Automatic database and table creation
-* Three seed tasks on a fresh database
-* Interactive Swagger UI documentation
+* Seed data on a fresh database
+* Interactive Swagger UI
+* Dockerized API
+* Dockerized PostgreSQL
+* One-command startup
+* Persistent PostgreSQL volume
 
 ## Tech Stack
 
-* Python
+* Python 3.12
 * FastAPI
 * Uvicorn
 * Pydantic
-* SQLite
+* PostgreSQL 17
+* Psycopg
+* Docker
+* Docker Compose
 * REST API
 * Swagger UI / OpenAPI
 
-## Why SQLite?
-
-SQLite was chosen because it provides a simple persistent database without requiring a separate database server.
-
-* The database is stored in a single file.
-* It requires zero database-server setup.
-* Data survives API restarts.
-* It is easy to inspect directly using DB Browser for SQLite.
-* A fresh clone can automatically create its database and seed data.
-
-## Database
-
-The SQLite database file is:
+## Project Structure
 
 ```text
-tasks.db
+flyrank-backend-task-api/
+├── .dockerignore
+├── .env
+├── .env.example
+├── .gitignore
+├── Dockerfile
+├── compose.yaml
+├── database.py
+├── main.py
+├── readme.md
+├── repository.py
+├── requirements.txt
+└── docs/
+    ├── swagger-ui.png
+    └── db-browser.png
 ```
 
-The file is created automatically when the application starts.
+The `.env` file contains local secrets and is intentionally excluded from Git.
 
-The database contains a `tasks` table with:
+The `.env.example` file contains the required environment variable template and is committed to the repository.
 
-| Column  | Type    | Description                    |
-| ------- | ------- | ------------------------------ |
-| `id`    | INTEGER | Primary key                    |
-| `title` | TEXT    | Task title                     |
-| `done`  | INTEGER | Completion status (`0` or `1`) |
+## Environment Variables
 
-`tasks.db` is included in `.gitignore`, so it is not committed to GitHub. Each fresh clone creates its own database automatically.
-
-On a new database, the application creates these three seed tasks:
-
-| ID | Title                  | Done  |
-| -- | ---------------------- | ----- |
-| 1  | Learn FastAPI          | false |
-| 2  | Build CRUD API         | false |
-| 3  | Push Project to GitHub | false |
-
-## Installation & Run
-
-Clone the repository:
-
-```bash
-git clone https://github.com/KashifAli-IT/W2A1CRUD.git
-cd W2A1CRUD
-```
-
-Create and activate a virtual environment:
+Copy the example environment file before starting the application.
 
 ### Windows PowerShell
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+Copy-Item .env.example .env
 ```
 
-Install dependencies:
+The `.env.example` file contains:
+
+```env
+DATABASE_URL=postgres://postgres:dev@localhost:5432/tasks
+```
+
+For the Docker Compose application, the API container receives its database connection through the Compose service name:
+
+```text
+postgres://postgres:dev@db:5432/tasks
+```
+
+The API uses `db` instead of `localhost` when running inside Docker because `db` is the PostgreSQL service name on the Compose network.
+
+## Run Everything
+
+After copying `.env.example` to `.env`, the complete application stack starts with one command:
 
 ```powershell
-pip install -r requirements.txt
+docker compose up
 ```
 
-Start the API with one command:
+This starts:
 
-```powershell
-uvicorn main:app --reload
-```
+* FastAPI API
+* PostgreSQL 17
+* Persistent PostgreSQL storage
 
-The API will be available at:
+The API is available at:
 
 ```text
-http://localhost:8000
+http://localhost:3000
 ```
 
-The database is created automatically when the application starts. No manual database setup is required.
-
-## Clean Start Verification
-
-The project was tested from a clean database state by deleting `tasks.db` and restarting the application.
-
-The database was recreated automatically, the `tasks` table was created, and the three seed tasks were inserted.
-
-Example:
+Swagger UI:
 
 ```text
-HTTP/1.1 200 OK
-content-type: application/json
-
-[{"id":1,"title":"Learn FastAPI","done":false},{"id":2,"title":"Build CRUD API","done":false},{"id":3,"title":"Push Project to GitHub","done":false}]
+http://localhost:3000/docs
 ```
 
-This confirms that a fresh clone can start the application without manually creating the database.
+No manual PostgreSQL installation, database creation, table creation, or Python virtual environment setup is required.
 
-## Swagger UI
+## Docker Compose Services
 
-Interactive API documentation is available at:
+The stack contains two services:
+
+| Service | Technology        | Purpose             |
+| ------- | ----------------- | ------------------- |
+| `api`   | FastAPI + Uvicorn | REST API            |
+| `db`    | PostgreSQL 17     | Persistent database |
+
+The API waits for PostgreSQL to become healthy before starting.
+
+PostgreSQL data is stored in the named Docker volume:
 
 ```text
-http://localhost:8000/docs
+taskdata
 ```
 
-![Swagger UI](docs/swagger-ui.png)
-
-## Database in DB Browser for SQLite
-
-The SQLite database can be opened directly with DB Browser for SQLite.
-
-![SQLite Database](docs/db-browser.png)
-
-## Stage 4: SQLite Exploration
-
-I explored the SQLite database directly using DB Browser for SQLite and verified that the API and database use the same source of truth.
-
-Example SQL query:
-
-```sql
-UPDATE tasks SET done = 1;
-```
-
-This query marked all existing tasks as completed in SQLite, and the change appeared immediately through `GET /tasks` without restarting the API.
-
-I also used:
-
-```sql
-SELECT * FROM tasks;
-```
-
-to inspect all tasks stored in the database.
+This allows task data to survive container recreation.
 
 ## API Endpoints
 
@@ -177,32 +144,153 @@ to inspect all tasks stored in the database.
 
 ### Error Responses
 
-| Status | Meaning                     |
-| ------ | --------------------------- |
-| 400    | Invalid or empty request    |
-| 404    | Task not found              |
-| 422    | Invalid request format/type |
+| Status | Meaning                        |
+| ------ | ------------------------------ |
+| 400    | Invalid or empty request       |
+| 404    | Task not found                 |
+| 422    | Invalid request format or type |
 
-## Example
+## Example API Response
 
-Create a task:
-
-```bash
-curl -i -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d "{\"title\":\"Buy milk\"}"
-```
-
-Example response:
+A verified request to the running Docker Compose API:
 
 ```text
-HTTP/1.1 201 Created
+HTTP/1.1 200 OK
+date: Sun, 27 Sep 2026 21:28:52 GMT
+server: uvicorn
+content-length: 206
 content-type: application/json
 
-{
-  "id": 4,
-  "title": "Buy milk",
-  "done": false
-}
+[{"id":1,"title":"Learn FastAPI","done":false},{"id":2,"title":"Build CRUD API","done":false},{"id":3,"title":"Push Project to GitHub","done":false},{"id":4,"title":"Stage 4 persistence test","done":false}]
 ```
+
+Request:
+
+```powershell
+curl.exe -i http://127.0.0.1:3000/tasks
+```
+
+## Database
+
+The application uses PostgreSQL 17.
+
+The `tasks` table is created automatically when the API starts if it does not already exist.
+
+### Table Structure
+
+| Column  | Type    | Description       |
+| ------- | ------- | ----------------- |
+| `id`    | SERIAL  | Primary key       |
+| `title` | TEXT    | Task title        |
+| `done`  | BOOLEAN | Completion status |
+
+### Verify the Database
+
+List the tables:
+
+```powershell
+docker compose exec db psql -U postgres -d tasks -c "\dt"
+```
+
+Verified result:
+
+```text
+         List of relations
+ Schema | Name  | Type  |  Owner
+--------+-------+-------+----------
+ public | tasks | table | postgres
+(1 row)
+```
+
+Inspect the stored tasks:
+
+```powershell
+docker compose exec db psql -U postgres -d tasks -c "SELECT * FROM tasks;"
+```
+
+Example:
+
+```text
+ id |          title           | done
+----+--------------------------+------
+  1 | Learn FastAPI            | f
+  2 | Build CRUD API           | f
+  3 | Push Project to GitHub   | f
+  4 | Stage 4 persistence test | f
+(4 rows)
+```
+### PostgreSQL Data Screenshot
+
+![PostgreSQL Data](docs/postgresql-data.png)
+
+## Persistence Verification
+
+The PostgreSQL data was tested across Docker Compose restarts.
+
+The following workflow was verified:
+
+```text
+Create task
+    ↓
+docker compose down
+    ↓
+docker compose up
+    ↓
+GET /tasks
+    ↓
+Previously stored task still exists
+```
+
+This confirms that PostgreSQL data is stored in the persistent `taskdata` Docker volume rather than only inside the API container.
+
+## Swagger UI
+
+Interactive API documentation is available at:
+
+```text
+http://localhost:3000/docs
+```
+
+![Swagger UI](docs/swagger-ui.png)
+
+## Clean Clone Checkpoint
+
+The intended workflow for a stranger cloning this repository is:
+
+```powershell
+git clone https://github.com/KashifAli-IT/W2A1CRUD.git
+cd W2A1CRUD
+Copy-Item .env.example .env
+docker compose up
+```
+
+Then verify:
+
+```powershell
+curl.exe -i http://127.0.0.1:3000/tasks
+```
+
+A fresh PostgreSQL database automatically creates the `tasks` table and inserts the three seed tasks:
+
+```text
+1 | Learn FastAPI
+2 | Build CRUD API
+3 | Push Project to GitHub
+```
+
+No manual database setup is required.
+
+## Security
+
+The real `.env` file is excluded from Git:
+
+```text
+.env
+```
+
+Only `.env.example` is committed.
+
+The example file contains development credentials intended for this assignment. Production deployments should use securely managed credentials and secrets.
 
 ## CRUD Flow
 
@@ -213,31 +301,6 @@ GET    /tasks/{id}  → Read one
 PUT    /tasks/{id}  → Update
 DELETE /tasks/{id}  → Delete
 ```
-
-## Project Structure
-
-```text
-W2A1CRUD/
-├── .gitignore
-├── database.py
-├── main.py
-├── requirements.txt
-├── README.md
-└── docs/
-    ├── swagger-ui.png
-    └── db-browser.png
-```
-
-The `tasks.db` file is generated automatically at runtime and is intentionally excluded from Git.
-
-## A3 Stage 0: PostgreSQL in Docker
-
-PostgreSQL runs in Docker using the `postgres:17` image.
-
-### Start PostgreSQL
-
-```powershell
-docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:17
 
 ## Author
 
