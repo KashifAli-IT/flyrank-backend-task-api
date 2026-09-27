@@ -2,7 +2,14 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from database import init_db, get_connection
-from repository import get_all_tasks, get_task_by_id
+from repository import (
+    get_all_tasks,
+    get_task_by_id,
+    create_task,
+    update_task,
+    delete_task,
+)
+
 
 app = FastAPI()
 
@@ -37,8 +44,7 @@ class TaskUpdate(BaseModel):
     done: bool | None = None 
 
 @app.put("/tasks/{task_id}", description="Update an existing task")
-def update_task(task_id: int, task_update: TaskUpdate):
-    # Validate request body
+def update_task_route(task_id: int, task_update: TaskUpdate):
     if task_update.title is None and task_update.done is None:
         return JSONResponse(
             status_code=400,
@@ -47,17 +53,9 @@ def update_task(task_id: int, task_update: TaskUpdate):
             }
         )
 
-    # Use existing database values when a field is not provided
-    connection = get_connection()
-
-    existing_task = connection.execute(
-        "SELECT id, title, done FROM tasks WHERE id = ?",
-        (task_id,)
-    ).fetchone()
+    existing_task = get_task_by_id(task_id)
 
     if existing_task is None:
-        connection.close()
-
         return JSONResponse(
             status_code=404,
             content={
@@ -66,12 +64,10 @@ def update_task(task_id: int, task_update: TaskUpdate):
         )
 
     title = existing_task["title"]
-    done = bool(existing_task["done"])
+    done = existing_task["done"]
 
     if task_update.title is not None:
         if not task_update.title.strip():
-            connection.close()
-
             return JSONResponse(
                 status_code=400,
                 content={
@@ -84,49 +80,26 @@ def update_task(task_id: int, task_update: TaskUpdate):
     if task_update.done is not None:
         done = task_update.done
 
-    connection.execute(
-        "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
-        (title, int(done), task_id)
+    updated_task = update_task(
+        task_id,
+        title,
+        done
     )
 
-    connection.commit()
+    return updated_task
 
-    updated_task = connection.execute(
-        "SELECT id, title, done FROM tasks WHERE id = ?",
-        (task_id,)
-    ).fetchone()
-
-    connection.close()
-
-    return {
-        "id": updated_task["id"],
-        "title": updated_task["title"],
-        "done": bool(updated_task["done"])
-    }
 
 @app.delete("/tasks/{task_id}", status_code=204, description="Delete a task")
-def delete_task(task_id: int):
-    connection = get_connection()
+def delete_task_route(task_id: int):
+    deleted = delete_task(task_id)
 
-    cursor = connection.execute(
-        "DELETE FROM tasks WHERE id = ?",
-        (task_id,)
-    )
-
-    connection.commit()
-
-    if cursor.rowcount == 0:
-        connection.close()
-
+    if not deleted:
         return JSONResponse(
             status_code=404,
             content={
                 "error": f"Task {task_id} not found"
             }
         )
-
-    connection.close()
-
     return Response(status_code=204)
 
 @app.get("/", description="Root endpoint that provides basic information about the API")
@@ -158,10 +131,9 @@ def get_task(id: int):
         )
 
     return task
-    
+
 @app.post("/tasks", status_code=201, description="Create a new task")
-def create_task(task: TaskCreate):
-    # Validate title
+def create_task_route(task: TaskCreate):
     if not task.title.strip():
         return JSONResponse(
             status_code=400,
@@ -170,21 +142,7 @@ def create_task(task: TaskCreate):
             }
         )
 
-    connection = get_connection()
-
-    cursor = connection.execute(
-        "INSERT INTO tasks (title, done) VALUES (?, ?)",
-        (task.title.strip(), int(task.done))
+    return create_task(
+        task.title.strip(),
+        task.done
     )
-
-    connection.commit()
-
-    new_id = cursor.lastrowid
-
-    connection.close()
-
-    return {
-        "id": new_id,
-        "title": task.title.strip(),
-        "done": task.done
-    }     
