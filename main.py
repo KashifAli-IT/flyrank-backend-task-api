@@ -2,9 +2,10 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from database import init_db, get_connection
-
+from repository import get_all_tasks, get_task_by_id
 
 app = FastAPI()
+
 init_db()
 
 # In-memory storage for tasks
@@ -141,51 +142,23 @@ def read_health():
     return {
         "status": "ok"
         }
-
 @app.get("/tasks", description="Get all tasks")
 def get_tasks():
-    connection = get_connection()
+    return get_all_tasks()
 
-    rows = connection.execute(
-        "SELECT * FROM tasks"
-    ).fetchall()
-
-    connection.close()
-
-    return [
-        {
-            "id": row["id"],
-            "title": row["title"],
-            "done": bool(row["done"])
-        }
-        for row in rows
-    ]
 
 @app.get("/tasks/{id}", description="Get a specific task by ID")
 def get_task(id: int):
-    connection = get_connection()
+    task = get_task_by_id(id)
 
-    row = connection.execute(
-        "SELECT * FROM tasks WHERE id = ?",
-        (id,)
-    ).fetchone()
-
-    connection.close()
-
-    if row is None:
+    if task is None:
         return JSONResponse(
             status_code=404,
-            content={
-                "error": f"Task with ID {id} not found"
-            }
+            content={"error": "Task not found"}
         )
 
-    return {
-        "id": row["id"],
-        "title": row["title"],
-        "done": bool(row["done"])
-    }     
-
+    return task
+    
 @app.post("/tasks", status_code=201, description="Create a new task")
 def create_task(task: TaskCreate):
     # Validate title
