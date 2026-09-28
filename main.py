@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from database import init_db, get_connection
+from supabase_client import supabase
 from repository import (
     get_all_tasks,
     get_task_by_id,
