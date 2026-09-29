@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.security import HTTPBearer
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from database import init_db, get_connection
@@ -13,6 +14,8 @@ from repository import (
 
 
 app = FastAPI()
+
+security = HTTPBearer(auto_error=False)
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -84,14 +87,16 @@ def public_info():
         "message": "Welcome stranger! This info is public."
     }
 
-def require_user(authorization: str | None = Header(default=None)):
-    if not authorization or not authorization.startswith("Bearer "):
+def require_user(
+    credentials=Depends(security),
+):
+    if not credentials:
         raise HTTPException(
             status_code=401,
             detail="Access token required",
         )
 
-    token = authorization.split(" ", 1)[1]
+    token = credentials.credentials
 
     if not token:
         raise HTTPException(
