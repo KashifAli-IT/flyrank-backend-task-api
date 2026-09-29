@@ -5,6 +5,10 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL}
+      PORT: ${PORT}
     depends_on:
       db:
         condition: service_healthy
@@ -12,7 +16,7 @@ services:
   db:
     image: postgres:17
     ports:
-    - "5432:5432"
+      - "5432:5432"
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}

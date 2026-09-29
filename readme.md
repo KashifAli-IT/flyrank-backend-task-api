@@ -1,103 +1,85 @@
-# Task API
+# FlyRank Backend Task API
 
-A containerized RESTful CRUD API built with **FastAPI** and **PostgreSQL** as part of the FlyRank AI Backend Engineer internship task.
+A FastAPI backend implementing authentication, JWT verification, protected routes, logout, and Swagger API documentation using Supabase Auth.
 
-The application provides CRUD operations for tasks and runs the API and PostgreSQL database together with Docker Compose.
-
-## Features
-
-* Create tasks
-* List all tasks
-* Get a single task
-* Update a task
-* Delete a task
-* Input validation
-* Proper HTTP status codes
-* PostgreSQL persistence
-* Automatic database and table creation
-* Seed data on a fresh database
-* Interactive Swagger UI
-* Dockerized API
-* Dockerized PostgreSQL
-* One-command startup
-* Persistent PostgreSQL volume
+The project was built as part of the FlyRank AI Backend Track and extends a task CRUD API with Supabase-based authentication.
 
 ## Tech Stack
 
-* Python 3.12
+* Python
 * FastAPI
-* Uvicorn
-* Pydantic
-* PostgreSQL 17
-* Psycopg
+* Supabase Auth
+* PostgreSQL
 * Docker
 * Docker Compose
-* REST API
 * Swagger UI / OpenAPI
+
+## Features
+
+* User signup
+* User login
+* Supabase JWT verification
+* Reusable authentication dependency
+* Protected API routes
+* Logout
+* Public API route
+* PostgreSQL-backed task API
+* Interactive Swagger documentation
+* Environment-based configuration
+* Docker Compose setup
 
 ## Project Structure
 
 ```text
-flyrank-backend-task-api/
-├── .dockerignore
-├── .env
-├── .env.example
-├── .gitignore
+.
+├── main.py
+├── database.py
+├── repository.py
+├── supabase_client.py
 ├── Dockerfile
 ├── compose.yaml
-├── database.py
-├── main.py
-├── readme.md
-├── repository.py
 ├── requirements.txt
+├── .env.example
+├── .gitignore
 └── docs/
-    ├── swagger-ui.png
-    └── db-browser.png
+    └── swagger-auth.png
 ```
 
-The `.env` file contains local secrets and is intentionally excluded from Git.
+## Environment Setup
 
-The `.env.example` file contains the required environment variable template and is committed to the repository.
-
-## Environment Variables
-
-Copy the example environment file before starting the application.
-
-### Windows PowerShell
+Create a local `.env` file from the example:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-The `.env.example` file contains:
+Then replace the placeholder values with your own configuration.
+
+Required variables:
 
 ```env
-DATABASE_URL=postgres://postgres:dev@localhost:5432/tasks
+DATABASE_URL=postgres://postgres:your_password@db:5432/tasks
+POSTGRES_PASSWORD=your_password
+POSTGRES_DB=tasks
+
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+SUPABASE_JWKS_URL=https://your-project-ref.supabase.co/auth/v1/.well-known/jwks.json
+
+PORT=3000
 ```
 
-For the Docker Compose application, the API container receives its database connection through the Compose service name:
+Never commit `.env` or any Supabase secret/service-role key.
 
-```text
-postgres://postgres:dev@db:5432/tasks
-```
+## Run the API
 
-The API uses `db` instead of `localhost` when running inside Docker because `db` is the PostgreSQL service name on the Compose network.
-
-## Run Everything
-
-After copying `.env.example` to `.env`, the complete application stack starts with one command:
+Start the complete application with one command:
 
 ```powershell
-docker compose up
+docker compose up --build
 ```
 
-This starts:
-
-* FastAPI API
-* PostgreSQL 17
-* Persistent PostgreSQL storage
-
-The API is available at:
+The API will be available at:
 
 ```text
 http://localhost:3000
@@ -109,201 +91,62 @@ Swagger UI:
 http://localhost:3000/docs
 ```
 
-No manual PostgreSQL installation, database creation, table creation, or Python virtual environment setup is required.
+## API Reference
 
-## Docker Compose Services
+| Method | Endpoint               | Authentication | Description                                           |
+| ------ | ---------------------- | -------------- | ----------------------------------------------------- |
+| POST   | `/auth/signup`         | No             | Create a new user                                     |
+| POST   | `/auth/login`          | No             | Authenticate a user and return JWT tokens             |
+| POST   | `/auth/logout`         | Yes            | Sign out the authenticated user                       |
+| GET    | `/public/info`         | No             | Public API information                                |
+| GET    | `/protected/profile`   | Yes            | Return authenticated user metadata                    |
+| GET    | `/protected/dashboard` | Yes            | Example protected route using the reusable auth guard |
 
-The stack contains two services:
-
-| Service | Technology        | Purpose             |
-| ------- | ----------------- | ------------------- |
-| `api`   | FastAPI + Uvicorn | REST API            |
-| `db`    | PostgreSQL 17     | Persistent database |
-
-The API waits for PostgreSQL to become healthy before starting.
-
-PostgreSQL data is stored in the named Docker volume:
+Protected endpoints require:
 
 ```text
-taskdata
+Authorization: Bearer <access_token>
 ```
 
-This allows task data to survive container recreation.
-
-## API Endpoints
-
-| Method | Endpoint      | Description             | Success |
-| ------ | ------------- | ----------------------- | ------- |
-| GET    | `/`           | Returns API information | 200     |
-| GET    | `/health`     | Checks API health       | 200     |
-| GET    | `/tasks`      | Returns all tasks       | 200     |
-| GET    | `/tasks/{id}` | Returns one task        | 200     |
-| POST   | `/tasks`      | Creates a new task      | 201     |
-| PUT    | `/tasks/{id}` | Updates a task          | 200     |
-| DELETE | `/tasks/{id}` | Deletes a task          | 204     |
-
-### Error Responses
-
-| Status | Meaning                        |
-| ------ | ------------------------------ |
-| 400    | Invalid or empty request       |
-| 404    | Task not found                 |
-| 422    | Invalid request format or type |
-
-## Example API Response
-
-A verified request to the running Docker Compose API:
+## Authentication Flow
 
 ```text
-HTTP/1.1 200 OK
-date: Sun, 27 Sep 2026 21:28:52 GMT
-server: uvicorn
-content-length: 206
-content-type: application/json
-
-[{"id":1,"title":"Learn FastAPI","done":false},{"id":2,"title":"Build CRUD API","done":false},{"id":3,"title":"Push Project to GitHub","done":false},{"id":4,"title":"Stage 4 persistence test","done":false}]
+Signup
+  ↓
+Login
+  ↓
+Supabase returns access token
+  ↓
+Authorization: Bearer <access_token>
+  ↓
+FastAPI authentication dependency
+  ↓
+Supabase verifies token
+  ↓
+Protected route
 ```
 
-Request:
-
-```powershell
-curl.exe -i http://127.0.0.1:3000/tasks
-```
-
-## Database
-
-The application uses PostgreSQL 17.
-
-The `tasks` table is created automatically when the API starts if it does not already exist.
-
-### Table Structure
-
-| Column  | Type    | Description       |
-| ------- | ------- | ----------------- |
-| `id`    | SERIAL  | Primary key       |
-| `title` | TEXT    | Task title        |
-| `done`  | BOOLEAN | Completion status |
-
-### Verify the Database
-
-List the tables:
-
-```powershell
-docker compose exec db psql -U postgres -d tasks -c "\dt"
-```
-
-Verified result:
-
-```text
-         List of relations
- Schema | Name  | Type  |  Owner
---------+-------+-------+----------
- public | tasks | table | postgres
-(1 row)
-```
-
-Inspect the stored tasks:
-
-```powershell
-docker compose exec db psql -U postgres -d tasks -c "SELECT * FROM tasks;"
-```
-
-Example:
-
-```text
- id |          title           | done
-----+--------------------------+------
-  1 | Learn FastAPI            | f
-  2 | Build CRUD API           | f
-  3 | Push Project to GitHub   | f
-  4 | Stage 4 persistence test | f
-(4 rows)
-```
-### PostgreSQL Data Screenshot
-
-![PostgreSQL Data](docs/postgresql-data.png)
-
-## Persistence Verification
-
-The PostgreSQL data was tested across Docker Compose restarts.
-
-The following workflow was verified:
-
-```text
-Create task
-    ↓
-docker compose down
-    ↓
-docker compose up
-    ↓
-GET /tasks
-    ↓
-Previously stored task still exists
-```
-
-This confirms that PostgreSQL data is stored in the persistent `taskdata` Docker volume rather than only inside the API container.
+The authentication logic is centralized in a reusable FastAPI dependency, so protected routes do not duplicate JWT verification code.
 
 ## Swagger UI
 
-Interactive API documentation is available at:
+FastAPI exposes interactive OpenAPI documentation at `/docs`.
 
-```text
-http://localhost:3000/docs
-```
+The protected routes use HTTP Bearer authentication, allowing a JWT to be entered once through Swagger's **Authorize** button and reused when testing protected endpoints.
 
-![Swagger UI](docs/swagger-ui.png)
-
-## Clean Clone Checkpoint
-
-The intended workflow for a stranger cloning this repository is:
-
-```powershell
-git clone https://github.com/KashifAli-IT/W2A1CRUD.git
-cd W2A1CRUD
-Copy-Item .env.example .env
-docker compose up
-```
-
-Then verify:
-
-```powershell
-curl.exe -i http://127.0.0.1:3000/tasks
-```
-
-A fresh PostgreSQL database automatically creates the `tasks` table and inserts the three seed tasks:
-
-```text
-1 | Learn FastAPI
-2 | Build CRUD API
-3 | Push Project to GitHub
-```
-
-No manual database setup is required.
+![Swagger UI with Bearer Authentication](docs/swagger-auth.png)
 
 ## Security
 
-The real `.env` file is excluded from Git:
+* `.env` is excluded through `.gitignore`
+* Supabase publishable credentials are loaded from environment variables
+* Supabase secret/service-role credentials are not required by the application
+* JWTs are verified through Supabase Auth
+* Protected routes use a shared authentication dependency
+* Real credentials should never be committed to Git
 
-```text
-.env
-```
+## GitHub
 
-Only `.env.example` is committed.
+The project is published as a public repository for review and reproducibility.
 
-The example file contains development credentials intended for this assignment. Production deployments should use securely managed credentials and secrets.
-
-## CRUD Flow
-
-```text
-POST   /tasks       → Create
-GET    /tasks       → Read all
-GET    /tasks/{id}  → Read one
-PUT    /tasks/{id}  → Update
-DELETE /tasks/{id}  → Delete
-```
-
-## Author
-
-**Kashif Ali**
-
-GitHub: https://github.com/KashifAli-IT
+A fresh clone can provide its own environment variables and run the API using Docker Compose.
