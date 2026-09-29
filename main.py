@@ -85,9 +85,34 @@ def protected_profile(authorization: str | None = Header(default=None)):
             content={"error": "Access token required"},
         )
 
-    return {
-        "message": "Protected profile area"
-    }
+    token = authorization.split(" ", 1)[1]
+
+    if not token:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"},
+        )
+
+    try:
+        response = supabase.auth.get_user(token)
+
+        if not response.user:
+            return JSONResponse(
+                status_code=401,
+                content={"error": "Invalid or expired token"},
+            )
+
+        return {
+            "id": response.user.id,
+            "email": response.user.email,
+            "created_at": response.user.created_at,
+        }
+
+    except Exception:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid or expired token"},
+        )
 
 init_db()
 
